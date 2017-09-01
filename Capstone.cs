@@ -8,6 +8,14 @@ namespace inVtero.net.Support
 {
     public static class Capstone
     {
+#if CSV4
+        const string CapStoneDLL = "capstone_V4.dll";
+#endif
+#if CSV3
+        const string CapStoneDLL = "capstone_V3.dll";
+#endif
+
+
         #region Type Marshaling
         public class cs
         {
@@ -3420,12 +3428,12 @@ namespace inVtero.net.Support
             return rv.ToArray();
         }
 
-        [DllImport("capstone.dll")]
+        [DllImport(CapStoneDLL)]
         public static extern cs_err cs_open(
             cs_arch arch,
             cs_mode mode,
             ref IntPtr handle);
-        [DllImport("capstone.dll")]
+        [DllImport(CapStoneDLL)]
         public static extern ulong cs_disasm(
             IntPtr handle,
             byte[] code,
@@ -3434,7 +3442,7 @@ namespace inVtero.net.Support
             ulong count,
             ref IntPtr insn);
 
-        [DllImport("capstone.dll")]
+        [DllImport(CapStoneDLL)]
         public static extern bool cs_disasm_iter(
             IntPtr handle,
             ref IntPtr code,
@@ -3442,57 +3450,57 @@ namespace inVtero.net.Support
             IntPtr address,
             ref IntPtr insn);
 
-        [DllImport("capstone.dll")]
+        [DllImport(CapStoneDLL)]
         public static extern bool cs_free(
             IntPtr insn,
             ulong count);
-        [DllImport("capstone.dll")]
+        [DllImport(CapStoneDLL)]
         public static extern cs_err cs_close(
             ref IntPtr handle);
-        [DllImport("capstone.dll")]
+        [DllImport(CapStoneDLL)]
         public static extern cs_err cs_option(
             IntPtr handle,
             int type,
             int value);
-        [DllImport("capstone.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(CapStoneDLL, CallingConvention = CallingConvention.Cdecl)]
         public static extern string cs_reg_name(
             IntPtr handle,
             uint reg_id);
-        [DllImport("capstone.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(CapStoneDLL, CallingConvention = CallingConvention.Cdecl)]
         public static extern string cs_insn_name(
             IntPtr handle,
             uint reg_id);
-        [DllImport("capstone.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(CapStoneDLL, CallingConvention = CallingConvention.Cdecl)]
         public static extern string cs_group_name(
             IntPtr handle,
             uint reg_id);
-        [DllImport("capstone.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(CapStoneDLL, CallingConvention = CallingConvention.Cdecl)]
         public static extern bool cs_insn_group(
             IntPtr handle,
             uint reg_id);
-        [DllImport("capstone.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(CapStoneDLL, CallingConvention = CallingConvention.Cdecl)]
         public static extern bool cs_reg_read(
             IntPtr handle,
             IntPtr insn,
             uint reg_id);
-        [DllImport("capstone.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(CapStoneDLL, CallingConvention = CallingConvention.Cdecl)]
         public static extern bool cs_reg_write(
             IntPtr handle,
             IntPtr insn,
             uint reg_id);
-        [DllImport("capstone.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(CapStoneDLL, CallingConvention = CallingConvention.Cdecl)]
         public static extern int cs_op_count(
             IntPtr handle,
             IntPtr insn,
             uint op_type);
-        [DllImport("capstone.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(CapStoneDLL, CallingConvention = CallingConvention.Cdecl)]
         public static extern int cs_op_index(
            IntPtr handle,
            IntPtr insn,
            uint op_type,
            uint position);
 
-        [DllImport("capstone.dll", CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(CapStoneDLL, CallingConvention = CallingConvention.Cdecl)]
         public static extern cs_err cs_regs_access(
             IntPtr handle, 
             cs_insn insn,
@@ -3501,7 +3509,7 @@ namespace inVtero.net.Support
             cs_regs regs_write, 
             IntPtr regs_write_count);
 
-        [DllImport("capstone.dll")]
+        [DllImport(CapStoneDLL)]
         public static extern int cs_version(
             uint major,
             uint minor);

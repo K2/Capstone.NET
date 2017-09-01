@@ -42,8 +42,8 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'CSV4|x64'">
     <OutputPath>bin\x64\CSV4\</OutputPath>
     <PlatformTarget>x64</PlatformTarget>
-    <DefineConstants>CSV4</DefineConstants>
-    <Optimize>true</Optimize>
+    <DefineConstants>DEBUG;CSV4</DefineConstants>
+    <Optimize>false</Optimize>
   </PropertyGroup>
   <ItemGroup>
     <Reference Include="System" />
