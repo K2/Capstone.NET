@@ -14,7 +14,52 @@ namespace inVtero.net.Support
 #if CSV3
         const string CapStoneDLL = "capstone_V3.dll";
 #endif
+        public class cs_x86Marshaler : ICustomMarshaler
+        {
+            static cs_x86Marshaler static_instance;
+            // only needed on ref types
+            //call could be executed simultaneously on two or more threads.
+            //[ThreadStatic]
+            //cs_x86 marshaledObject;
 
+            public unsafe IntPtr MarshalManagedToNative(object managedObj)
+            {
+                //if (managedObj == null)
+                //    return IntPtr.Zero;
+                if (!(managedObj is cs_x86))
+                    throw new MarshalDirectiveException("VariableLengthArrayMarshaler must be used on an int array.");
+
+                //This is called on the way in so we must keep a reference to 
+                //the original object so we can marshal to it on the way out.
+                native_cs_x86 UnsafeLayout = new native_cs_x86((cs_x86)managedObj);
+                IntPtr pNativeData = Marshal.AllocHGlobal(cs_x86_Size);
+                Marshal.StructureToPtr(UnsafeLayout, pNativeData, true);
+
+                return pNativeData;
+            }
+
+            public object MarshalNativeToManaged(IntPtr pNativeData)
+            {
+                //if (marshaledObject == null)
+                //throw new MarshalDirectiveException("This marshaler can only be used for in-place ([In. Out]) marshaling.");
+                native_cs_x86 marshaledObject = (native_cs_x86)Marshal.PtrToStructure(pNativeData, typeof(native_cs_x86));
+                return marshaledObject.ToManaged();
+            }
+
+            public void CleanUpNativeData(IntPtr pNativeData) => Marshal.FreeHGlobal(pNativeData);
+
+            public void CleanUpManagedData(object managedObj) {}
+
+            public int GetNativeDataSize() => cs_x86_Size;
+
+            public static ICustomMarshaler GetInstance(string cookie)
+            {
+                if (static_instance == null)
+                    return static_instance = new cs_x86Marshaler();
+
+                return static_instance;
+            }
+        }
 
         #region Type Marshaling
         public class cs
@@ -22,7 +67,6 @@ namespace inVtero.net.Support
             public cs_insn insn;
             public cs_detail detail;
         }
-
         [StructLayout(LayoutKind.Sequential)]
         public struct cs_insn
         {
@@ -50,15 +94,287 @@ namespace inVtero.net.Support
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
             public byte[] groups;
             public byte groups_count;
+            [MarshalAs(UnmanagedType.CustomMarshaler, MarshalTypeRef = typeof(cs_x86Marshaler))]
             public cs_x86 x86;
         }
 
-        [StructLayout(LayoutKind.Sequential)]
+
+        // Instruction's operand referring to memory
+        // This is associated with X86_OP_MEM operand type above
+        [StructLayout(LayoutKind.Sequential, Size = 0x18)]
+        public struct x86_op_mem
+        {
+            public uint segment; // segment register (or X86_REG_INVALID if irrelevant)
+                                 // lol base is keyword ;)
+                                 // drpo it! (the bass)
+            public uint bass;  // base register (or X86_REG_INVALID if irrelevant)
+            public uint index; // index register (or X86_REG_INVALID if irrelevant)
+            public int scale;  // scale for index register
+            public long disp;   // displacement value
+        }
+
+        // Instruction operand
+#if CSV4
+        [StructLayout(LayoutKind.Explicit, Pack = 1, Size = 0x30)]
+#endif
+#if CSV3
+        [StructLayout(LayoutKind.Explicit, Pack = 1, Size = 0x30)]
+#endif
+        public struct cs_x86_op
+        {
+            [FieldOffset(0)]
+            public x86_op_type type;   // operand type
+
+            [FieldOffset(8)]
+            public x86_reg reg;    // register value for REG operand
+
+            [FieldOffset(8)]
+            public long imm;        // immediate value for IMM operand
+
+#if !CSV4
+            [FieldOffset(8)]
+            public double fp;      // floating point value for FP operand
+#endif
+
+            [FieldOffset(8)]
+            public x86_op_mem mem;     // base/index/scale/disp value for MEM operand
+
+            [FieldOffset(0x20)]
+            // size of this operand (in bytes).
+            public byte size;
+
+#if CSV4
+            [FieldOffset(0x21)]
+            // size of this operand (in bytes).
+            public byte access;
+#endif
+
+            [FieldOffset(0x24)]
+            // AVX broadcast type, or 0 if irrelevant
+            public x86_avx_bcast avx_bcast;
+
+            [FieldOffset(0x28)]
+            // AVX zero opmask {z}
+            public bool avx_zero_opmask;
+        }
+
+        // Instruction structure
+#if CSV4
+        const int cs_x86_Size = 0x1C0;
+#endif
+#if CSV3
+        const int cs_x86_Size = 0x1B0;
+#endif
+        public struct cs_x86
+        {
+            // Instruction prefix, which can be up to 4 bytes.
+            // A prefix byte gets value 0 when irrelevant.
+            // prefix[0] indicates REP/REPNE/LOCK prefix (See X86_PREFIX_REP/REPNE/LOCK above)
+            // prefix[1] indicates segment override (irrelevant for x86_64):
+            // See X86_PREFIX_CS/SS/DS/ES/FS/GS above.
+            // prefix[2] indicates operand-size override (X86_PREFIX_OPSIZE)
+            // prefix[3] indicates address-size override (X86_PREFIX_ADDRSIZE)
+            public byte[] prefix;
+
+            // Instruction opcode, wich can be from 1 to 4 bytes in size.
+            // This contains VEX opcode as well.
+            // An trailing opcode byte gets value 0 when irrelevant.
+            public byte[] opcode;
+
+            // REX prefix: only a non-zero value is relavant for x86_64
+            public byte rex;
+
+            // Address size, which can be overrided with above prefix[5].
+            public byte addr_size;
+
+            // ModR/M byte
+            public byte modrm;
+
+            // SIB value, or 0 when irrelevant.
+            public byte sib;
+
+            // Displacement value, or 0 when irrelevant.
+            public int disp;
+
+            /* SIB state */
+            // SIB index register, or X86_REG_INVALID when irrelevant.
+            public x86_reg sib_index;
+
+            // SIB scale. only applicable if sib_index is relavant.
+            public int sib_scale;
+
+            // SIB base register, or X86_REG_INVALID when irrelevant.
+            public x86_reg sib_base;
+
+#if CSV4
+            // XOP Code Condition
+            public x86_xop_cc xop_cc;
+#endif
+
+            // SSE Code Condition
+            public x86_sse_cc sse_cc;
+
+            // AVX Code Condition
+            public x86_avx_cc avx_cc;
+
+            // AVX Suppress all Exception
+            public bool avx_sae;
+
+            // AVX static rounding mode
+            public x86_avx_rm avx_rm;
+
+#if CSV4
+            // EFLAGS updated by this instruction.
+            // This can be formed from OR combination of X86_EFLAGS_* symbols in x86.h
+            public ulong eflags;
+            // FPU_FLAGS updated by this instruction.
+            // This can be formed from OR combination of X86_FPU_FLAGS_* symbols in x86.h
+            public ulong fpu_flags;
+#endif
+
+            // Number of operands of this instruction,
+            // or 0 when instruction has no operand.
+            public byte op_count;
+
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
+            public cs_x86_op[] operands;   // operands for this instruction.
+        }
+
+#if CSV4
+        [StructLayout(LayoutKind.Explicit, Pack = 1, Size = cs_x86_Size)]
+#endif
+#if CSV3
+        [StructLayout(LayoutKind.Explicit, Pack = 1, Size = cs_x86_Size)]
+#endif
+        public unsafe struct native_cs_x86
+        {
+            public native_cs_x86(cs_x86 clean)
+            {
+                fixed(void *fp = prefix)
+                    Marshal.Copy(clean.prefix, 0, new IntPtr(fp), 4);
+                fixed (void* fp = opcode)
+                    Marshal.Copy(clean.opcode, 0, new IntPtr(fp), 4);
+
+                rex = clean.rex;
+                addr_size = clean.addr_size;
+                modrm = clean.modrm;
+                sib = clean.sib;
+                disp = clean.disp;
+                sib_index = clean.sib_index;
+                sib_scale = clean.sib_scale;
+                sib_base = clean.sib_base;
+#if CSV4
+                xop_cc = clean.xop_cc;
+                eflags = clean.eflags;
+                fpu_flags = clean.fpu_flags;
+#endif
+                sse_cc = clean.sse_cc;
+                avx_cc = clean.avx_cc;
+                avx_sae = clean.avx_sae;
+                avx_rm = clean.avx_rm;
+                op_count = clean.op_count;
+
+                int opeandsLen = clean.operands.Length;
+                operands = new cs_x86_op[clean.operands.Length];
+                for (int i=0; i < opeandsLen; i++)
+                    operands[i] = clean.operands[i];
+            }
+
+            public cs_x86 ToManaged()
+            {
+                cs_x86 rv = new cs_x86();
+
+                fixed (void* fp = prefix)
+                    Marshal.Copy(new IntPtr(fp), rv.prefix, 0, 4);
+                fixed (void* fp = opcode)
+                    Marshal.Copy(new IntPtr(fp), rv.opcode, 0, 4);
+
+                rv.rex = rex;
+                rv.addr_size = addr_size;
+                rv.modrm = modrm;
+                rv.sib = sib;
+                rv.disp = disp;
+                rv.sib_index = sib_index;
+                rv.sib_scale = sib_scale;
+                rv.sib_base = sib_base;
+#if CSV4
+                rv.xop_cc = xop_cc;
+                rv.eflags = eflags;
+                rv.fpu_flags = fpu_flags;
+#endif
+                rv.sse_cc = sse_cc;
+                rv.avx_cc = avx_cc;
+                rv.avx_sae = avx_sae;
+                rv.avx_rm = avx_rm;
+                rv.op_count = op_count;
+
+                int opeandsLen = operands.Length;
+                rv.operands = new cs_x86_op[operands.Length];
+                for (int i = 0; i < opeandsLen; i++)
+                    rv.operands[i] = operands[i];
+
+                return rv;
+            }
+
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4, ArraySubType = UnmanagedType.U1)]
+            [FieldOffset(0)]
+            public fixed byte prefix[4];
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4, ArraySubType = UnmanagedType.U1)]
+            [FieldOffset(4)]
+            public fixed byte opcode[4];
+            [FieldOffset(8)]
+            public byte rex;
+            [FieldOffset(9)]
+            public byte addr_size;
+            [FieldOffset(0xA)]
+            public byte modrm;
+            [FieldOffset(0xB)]
+            public byte sib;
+            [FieldOffset(0xC)]
+            public int disp;
+            [FieldOffset(0x10)]
+            public x86_reg sib_index;
+            [FieldOffset(0x14)]
+            public int sib_scale;
+            [FieldOffset(0x18)]
+            public x86_reg sib_base;
+
+#if CSV4
+            [FieldOffset(0x1c)]
+            public x86_xop_cc xop_cc;
+#endif
+            [FieldOffset(0x20)]
+            public x86_sse_cc sse_cc;
+            [FieldOffset(0x24)]
+            public x86_avx_cc avx_cc;
+            [FieldOffset(0x28)]
+            public bool avx_sae;
+            [FieldOffset(0x2c)]
+            public x86_avx_rm avx_rm;
+#if CSV4
+            [FieldOffset(0x30)]
+            ulong eflags;
+            [FieldOffset(0x30)]
+            ulong fpu_flags;
+#endif
+            [FieldOffset(0x38)]
+            public byte op_count;
+            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
+            [FieldOffset(0x40)]
+            public cs_x86_op[] operands;
+        }
+
+
+
+        [StructLayout(LayoutKind.Explicit, Pack = 1)]
         public struct cs_regs
         {
             [MarshalAs(UnmanagedType.ByValArray, SizeConst = 128)]
+            [FieldOffset(0)]
             public ushort[] regs;
         }
+
+        #region Enum types
 
         public enum cs_err : int
         {
@@ -288,160 +604,6 @@ namespace inVtero.net.Support
             X86_PREFIX_ADDRSIZE = 0x67, // address-size override (cs_x86.prefix[3]
         }
 
-        // Instruction's operand referring to memory
-        // This is associated with X86_OP_MEM operand type above
-        public struct x86_op_mem
-        {
-            public x86_reg segment; // segment register (or X86_REG_INVALID if irrelevant)
-                                 // lol base is keyword ;)
-                                 // drpo it! (the bass)
-            public x86_reg bass;  // base register (or X86_REG_INVALID if irrelevant)
-            public x86_reg index; // index register (or X86_REG_INVALID if irrelevant)
-            public int scale;  // scale for index register
-            public long disp;   // displacement value
-        }
-
-        // Instruction operand
-#if CSV4
-        [StructLayout(LayoutKind.Explicit, Size = 0x30)]
-#endif
-#if CSV3
-        [StructLayout(LayoutKind.Explicit, Size = 0x1B0)]
-#endif
-        public struct cs_x86_op
-        {
-            [FieldOffset(0)]
-            public x86_op_type type;   // operand type
-
-            [FieldOffset(8)]
-            public x86_reg reg;    // register value for REG operand
-
-            [FieldOffset(8)]
-            public long imm;        // immediate value for IMM operand
-
-#if !CSV4
-            [FieldOffset(8)]
-            public double fp;      // floating point value for FP operand
-#endif
-
-            [FieldOffset(8)]
-            public x86_op_mem mem;     // base/index/scale/disp value for MEM operand
-
-            [FieldOffset(0x20)]
-            // size of this operand (in bytes).
-            public byte size;
-
-            [FieldOffset(0x24)]
-            // AVX broadcast type, or 0 if irrelevant
-            public x86_avx_bcast avx_bcast;
-
-            [FieldOffset(0x28)]
-            // AVX zero opmask {z}
-            public bool avx_zero_opmask;
-        }
-
-        // Instruction structure
-#if CSV4
-        [StructLayout(LayoutKind.Explicit, Size = 0x1C0)]
-#endif
-#if CSV3
-        [StructLayout(LayoutKind.Explicit, Size = 0x1B0)]
-#endif
-        public struct cs_x86
-        {
-            // Instruction prefix, which can be up to 4 bytes.
-            // A prefix byte gets value 0 when irrelevant.
-            // prefix[0] indicates REP/REPNE/LOCK prefix (See X86_PREFIX_REP/REPNE/LOCK above)
-            // prefix[1] indicates segment override (irrelevant for x86_64):
-            // See X86_PREFIX_CS/SS/DS/ES/FS/GS above.
-            // prefix[2] indicates operand-size override (X86_PREFIX_OPSIZE)
-            // prefix[3] indicates address-size override (X86_PREFIX_ADDRSIZE)
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
-            [FieldOffset(0)]
-            public byte[] prefix;
-
-            // Instruction opcode, wich can be from 1 to 4 bytes in size.
-            // This contains VEX opcode as well.
-            // An trailing opcode byte gets value 0 when irrelevant.
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 4)]
-            [FieldOffset(4)]
-            public byte[] opcode;
-
-            // REX prefix: only a non-zero value is relavant for x86_64
-            [FieldOffset(8)]
-            public byte rex;
-
-            // Address size, which can be overrided with above prefix[5].
-            [FieldOffset(9)]
-            public byte addr_size;
-
-            // ModR/M byte
-            [FieldOffset(0xA)]
-            public byte modrm;
-
-            // SIB value, or 0 when irrelevant.
-            [FieldOffset(0xB)]
-            public byte sib;
-
-            // Displacement value, or 0 when irrelevant.
-            [FieldOffset(0xC)]
-            public int disp;
-
-            /* SIB state */
-            // SIB index register, or X86_REG_INVALID when irrelevant.
-            [FieldOffset(0x10)]
-            public x86_reg sib_index;
-
-            // SIB scale. only applicable if sib_index is relavant.
-            [FieldOffset(0x14)]
-            public int sib_scale;
-
-            // SIB base register, or X86_REG_INVALID when irrelevant.
-            [FieldOffset(0x18)]
-            public x86_reg sib_base;
-
-#if CSV4
-            // XOP Code Condition
-            [FieldOffset(0x1c)]
-            public x86_xop_cc xop_cc;
-#endif
-
-            // SSE Code Condition
-            [FieldOffset(0x20)]
-            public x86_sse_cc sse_cc;
-
-            // AVX Code Condition
-            [FieldOffset(0x24)]
-            public x86_avx_cc avx_cc;
-
-            // AVX Suppress all Exception
-            [FieldOffset(0x28)]
-            public bool avx_sae;
-
-            // AVX static rounding mode
-            [FieldOffset(0x2c)]
-            public x86_avx_rm avx_rm;
-
-#if CSV4
-            // EFLAGS updated by this instruction.
-            // This can be formed from OR combination of X86_EFLAGS_* symbols in x86.h
-            [FieldOffset(0x30)]
-            ulong eflags;
-            // FPU_FLAGS updated by this instruction.
-            // This can be formed from OR combination of X86_FPU_FLAGS_* symbols in x86.h
-            [FieldOffset(0x30)]
-            ulong fpu_flags;
-#endif
-
-            // Number of operands of this instruction,
-            // or 0 when instruction has no operand.
-            [FieldOffset(0x38)]
-            public byte op_count;
-
-            [MarshalAs(UnmanagedType.ByValArray, SizeConst = 8)]
-            [FieldOffset(0x40)]
-            cs_x86_op[] operands;   // operands for this instruction.
-        }
 #if CSV3
         //> X86 instructions
         public enum x86_insn : int
@@ -3400,8 +3562,9 @@ namespace inVtero.net.Support
         }
 #endif
 #endregion
+        #endregion
 
-#region P/INVOKE signatures
+        #region P/INVOKE signatures
         public static cs[] Dissassemble(Byte[] Input, int Length, ulong VA = 0, bool Details = false)
         {
             List<cs> rv = new List<cs>();
@@ -3472,15 +3635,15 @@ namespace inVtero.net.Support
             IntPtr handle,
             int type,
             int value);
-        [DllImport(CapStoneDLL, CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(CapStoneDLL, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         public static extern string cs_reg_name(
             IntPtr handle,
             uint reg_id);
-        [DllImport(CapStoneDLL, CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(CapStoneDLL, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         public static extern string cs_insn_name(
             IntPtr handle,
             uint reg_id);
-        [DllImport(CapStoneDLL, CallingConvention = CallingConvention.Cdecl)]
+        [DllImport(CapStoneDLL, CallingConvention = CallingConvention.Cdecl, CharSet = CharSet.Ansi)]
         public static extern string cs_group_name(
             IntPtr handle,
             uint reg_id);
