@@ -58,12 +58,16 @@
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
-    <PostBuildEvent>if "$(ConfigurationName)" == "CSV4" (
+    <PostBuildEvent>env
+
+if "$(ConfigurationName)" == "CSV4" (
      copy "$(ProjectDir)\capstone_V4.dll" "$(TargetDir)" /y
 )
 
 if "$(ConfigurationName)" == "CSV3" (
      copy $(ProjectDir)\capstone_V3.dll $(TargetDir) /y
-)</PostBuildEvent>
+)
+
+REM ;C:\Users\files\Source\Code\inVtero.net\master\inVtero.net\quickdumps\bin\x64\Debug\quickdumps.exe</PostBuildEvent>
   </PropertyGroup>
 </Project>

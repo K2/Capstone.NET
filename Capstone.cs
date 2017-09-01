@@ -302,7 +302,12 @@ namespace inVtero.net.Support
         }
 
         // Instruction operand
+#if CSV4
         [StructLayout(LayoutKind.Explicit, Size = 0x30)]
+#endif
+#if CSV3
+        [StructLayout(LayoutKind.Explicit, Size = 0x1B0)]
+#endif
         public struct cs_x86_op
         {
             [FieldOffset(0)]
@@ -336,7 +341,12 @@ namespace inVtero.net.Support
         }
 
         // Instruction structure
-        [StructLayout(LayoutKind.Explicit)]
+#if CSV4
+        [StructLayout(LayoutKind.Explicit, Size = 0x1C0)]
+#endif
+#if CSV3
+        [StructLayout(LayoutKind.Explicit, Size = 0x1B0)]
+#endif
         public struct cs_x86
         {
             // Instruction prefix, which can be up to 4 bytes.
@@ -3389,9 +3399,9 @@ namespace inVtero.net.Support
             X86_GRP_ENDING
         }
 #endif
-        #endregion
+#endregion
 
-        #region P/INVOKE signatures
+#region P/INVOKE signatures
         public static cs[] Dissassemble(Byte[] Input, int Length, ulong VA = 0, bool Details = false)
         {
             List<cs> rv = new List<cs>();
@@ -3513,7 +3523,7 @@ namespace inVtero.net.Support
         public static extern int cs_version(
             uint major,
             uint minor);
-        #endregion
+#endregion
     }
 }
 
