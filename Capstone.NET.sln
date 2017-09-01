@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 15
+VisualStudioVersion = 15.0.26730.12
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Capstone.NET", "Capstone.NET.csproj", "{A631CE5C-E28F-49DE-8E17-57918AE2AFCF}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		CSV3|x64 = CSV3|x64
+		CSV4|x64 = CSV4|x64
+		Debug|x64 = Debug|x64
+		Release|x64 = Release|x64
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{A631CE5C-E28F-49DE-8E17-57918AE2AFCF}.CSV3|x64.ActiveCfg = CSV3|x64
+		{A631CE5C-E28F-49DE-8E17-57918AE2AFCF}.CSV3|x64.Build.0 = CSV3|x64
+		{A631CE5C-E28F-49DE-8E17-57918AE2AFCF}.CSV4|x64.ActiveCfg = CSV4|x64
+		{A631CE5C-E28F-49DE-8E17-57918AE2AFCF}.CSV4|x64.Build.0 = CSV4|x64
+		{A631CE5C-E28F-49DE-8E17-57918AE2AFCF}.Debug|x64.ActiveCfg = Debug|x64
+		{A631CE5C-E28F-49DE-8E17-57918AE2AFCF}.Debug|x64.Build.0 = Debug|x64
+		{A631CE5C-E28F-49DE-8E17-57918AE2AFCF}.Release|x64.ActiveCfg = Release|x64
+		{A631CE5C-E28F-49DE-8E17-57918AE2AFCF}.Release|x64.Build.0 = Release|x64
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {32BBE80C-5798-4623-AB43-845E78A86C61}
+	EndGlobalSection
+EndGlobal
